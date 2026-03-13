@@ -1,3 +1,4 @@
+import math
 import os
 import time
 from typing import List, Dict, Any
@@ -55,19 +56,28 @@ class YandexMusicExporter:
         self.client = Client(token).init()
 
     @staticmethod
-    def _save_csv(rows: List[Dict[str, Any]], filename: str, sort_column: str) -> None:
-        """Save rows to CSV."""
+    def _save_csv(rows: List[Dict[str, Any]], filename: str, sort_column: str, chunk_size: int = 500) -> None:
+        """Save rows to CSV files split into chunks of max `chunk_size` rows."""
+
         dataframe = pd.DataFrame(rows)
 
         if not dataframe.empty and sort_column in dataframe.columns:
             dataframe = dataframe.sort_values(sort_column)
 
-        dataframe.to_csv(
-            filename,
-            index=False,
-            encoding="utf-8-sig",
-        )
-        print(f"Saved {filename}")
+        parts = math.ceil(len(dataframe) / chunk_size)
+        base, _ = os.path.splitext(filename)
+        for i in range(parts):
+            start = i * chunk_size
+            end = start + chunk_size
+            chunk = dataframe.iloc[start:end]
+
+            part_filename = f"{base}_part{i+1}.csv"
+            chunk.to_csv(
+                part_filename,
+                index=False,
+                encoding="utf-8-sig",
+            )
+            print(f"Saved {part_filename} ({len(chunk)} rows)")
 
     def export_liked_tracks(self):
         tracks = self.client.users_likes_tracks().fetch_tracks()
